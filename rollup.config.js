@@ -2,7 +2,6 @@ import json from "@rollup/plugin-json"
 import nodeResolve from "@rollup/plugin-node-resolve"
 import typescript from "@rollup/plugin-typescript"
 import { promises as fsPromises } from "fs"
-import { terser } from "rollup-plugin-terser"
 import module from "./package.json"
 
 const { readdir: readDirectory } = fsPromises
@@ -29,7 +28,7 @@ export default async () => ({
 		typescript({ tsconfig: `${sourceDirectory}/tsconfig.json`, outDir }),
 		json(),
 		nodeResolve(),
-		terser()
+		// terser()
 	],
 	external: [
 		..."dependencies" in module ?
