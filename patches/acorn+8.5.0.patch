@@ -1,0 +1,127 @@
+diff --git a/node_modules/acorn/dist/acorn.d.ts b/node_modules/acorn/dist/acorn.d.ts
+index 861b357..b030295 100644
+--- a/node_modules/acorn/dist/acorn.d.ts
++++ b/node_modules/acorn/dist/acorn.d.ts
+@@ -60,14 +60,119 @@ declare namespace acorn {
+     constructor(p: Parser, start: Position, end: Position)
+   }
+ 
+-  class Node {
+-    type: string
++  type Node = {
+     start: number
+     end: number
+     loc?: SourceLocation
+     sourceFile?: string
+     range?: [number, number]
+-    constructor(parser: Parser, pos: number, loc?: SourceLocation)
++  } & ({
++    type: "Program"
++    body: Node[]
++  } | {
++    type: "VariableDeclaration"
++    declarations: Node[]
++  } | {
++    type: "VariableDeclarator"
++    id: Node
++    init: Node | null
++  } | {
++    type: "Identifier"
++    name: string
++  } | {
++    type: "Literal"
++    value: unknown
++    raw: string
++  } | {
++    type: "ExpressionStatement"
++    expression: Node
++  } | {
++    type: "CallExpression"
++    callee: Node
++    arguments: Node[]
++    optional: boolean
++  } | {
++    type: "MemberExpression"
++    object: Node
++    property: Node
++    computed: boolean
++    optional: boolean
++  } | {
++    type: "FunctionDeclaration"
++    id: Node
++    expression: boolean
++    generator: boolean
++    async: boolean
++    params: Node[]
++    body: Node
++  } | {
++    type: "BlockStatement"
++    body: Node[]
++  } | {
++    type: "ForStatement"
++    init: Node
++    test: Node
++    update: Node
++    body: Node
++  } | {
++    type: "AssignmentExpression"
++    operator: string
++    left: Node
++    right: Node
++  } | {
++    type: "BinaryExpression"
++    left: Node
++    operator: string
++    right: Node
++  } | {
++    type: "UpdateExpression"
++    operator: string
++    prefix: boolean
++    argument: Node
++  } | {
++    type: "ReturnStatement"
++    argument: Node
++  } | {
++    type: "ArrowFunctionExpression"
++    id: null
++    expression: boolean
++    generator: boolean
++    async: boolean
++    params: Node[]
++    body: Node
++  } | {
++    type: "ArrayExpression"
++    elements: Node[]
++  } | {
++    type: "ObjectExpression"
++    properties: Node[]
++  } | {
++    type: "FunctionExpression"
++    id: null
++    expression: boolean
++    generator: boolean
++    async: boolean
++    params: Node[]
++    body: Node
++  } | {
++    type: "TemplateLiteral"
++    expressions: Node[]
++    quasis: Node[]
++  } | {
++    type: "TemplateElement"
++    value: {
++      raw: string
++      cooked: string
++    }
++  } | {
++    type: "IfStatement",
++    test: Node
++    consequent: Node
++    alternate: Node
++  })
++
++  const Node: {
++    new(parser: Parser, pos: number, loc?: SourceLocation): Node
+   }
+ 
+   class TokenType {
