@@ -2,9 +2,15 @@ import { promises as fsPromises } from "fs"
 
 const { readdir: readDirectory } = fsPromises
 
+export class CustomError extends Error {
+	override name = this.constructor.name
+}
+
+export class AssertError extends Error {}
+
 export function assert(value: any, message = "assertion failed"): asserts value {
 	if (!value)
-		throw new Error(message)
+		throw new AssertError(message)
 }
 
 /**
@@ -12,7 +18,7 @@ export function assert(value: any, message = "assertion failed"): asserts value 
  * @param filter either a blacklist or a filter function that returns false to ignore file name
  * @returns promise that resolves to array of found files
  */
- export async function findFiles(path: string, filter: string[] | ((name: string) => boolean) = []) {
+export async function findFiles(path: string, filter: string[] | ((name: string) => boolean) = []) {
 	const paths: string[] = []
 
 	let filterFunction: (name: string) => boolean
@@ -55,4 +61,12 @@ async function findFilesSub(path: string, filterFunction: (name: string) => bool
 	await Promise.all(promises)
 
 	return paths
+}
+
+export function isRecord(value: unknown): value is Record<string | symbol, unknown> {
+	return !!value && typeof value == "object"
+}
+
+export function is<C extends Function>(object: {}, constructor: C): object is C["prototype"] {
+	return Object.getPrototypeOf(object) == constructor.prototype
 }
