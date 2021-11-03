@@ -116,7 +116,7 @@ describe("Array.prototype.sort", () => {
     });
 
     test("that it makes no unnecessary calls to compare function", () => {
-        expectNoCallCompareFunction = function (a, b) {
+        var expectNoCallCompareFunction = function (a, b) {
             expect().fail();
         };
 

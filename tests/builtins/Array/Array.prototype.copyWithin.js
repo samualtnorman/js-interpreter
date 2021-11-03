@@ -38,7 +38,7 @@ describe("normal behavior", () => {
     test("specify end", () => {
         var array = [1, 2, 3];
 
-        b = array.copyWithin(2, 0, 1);
+        var b = array.copyWithin(2, 0, 1);
         expect(b).toEqual(array);
         expect(array).toEqual([1, 2, 1]);
     });

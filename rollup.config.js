@@ -1,7 +1,9 @@
+import commonJS from "@rollup/plugin-commonjs"
 import json from "@rollup/plugin-json"
 import nodeResolve from "@rollup/plugin-node-resolve"
 import typescript from "@rollup/plugin-typescript"
 import { promises as fsPromises } from "fs"
+import preserveShebang from "rollup-plugin-preserve-shebang"
 import module from "./package.json"
 
 const { readdir: readDirectory } = fsPromises
@@ -28,11 +30,16 @@ export default async () => ({
 		typescript({ tsconfig: `${sourceDirectory}/tsconfig.json`, outDir }),
 		json(),
 		nodeResolve(),
-		// terser()
+		preserveShebang(),
+		// terser(),
+		commonJS()
 	],
 	external: [
 		..."dependencies" in module ?
 			Object.keys(module["dependencies"])
+		:	[],
+		..."devDependencies" in module ?
+			Object.keys(module["devDependencies"])
 		:	[]
 	],
 	// preserveEntrySignatures: "allow-extension"

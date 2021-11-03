@@ -50,7 +50,7 @@ describe("normal behavior", () => {
         Object.defineProperty(a, 1, { configurable: false, value: 2 });
         expect(a.length).toEqual(3);
 
-        expect((a.length = 1)).toEqual(1);
+        expect(() => a.length = 1).toThrow(TypeError);
         expect(a.length).toEqual(2);
         expect(a[1]).toEqual(2);
     });
