@@ -8,7 +8,7 @@ describe("normal behavior", () => {
         expect(promise).toBeInstanceOf(Promise);
     });
 
-    test("resolve", () => {
+    test("resolve", async () => {
         const promise1 = Promise.resolve(3);
         const promise2 = 42;
         const promise3 = new Promise((resolve, reject) => {
@@ -18,7 +18,7 @@ describe("normal behavior", () => {
         let resolvedValues = null;
         let wasRejected = false;
 
-        Promise.all([promise1, promise2, promise3]).then(
+        await Promise.all([promise1, promise2, promise3]).then(
             values => {
                 resolvedValues = values;
             },
@@ -27,7 +27,6 @@ describe("normal behavior", () => {
             }
         );
 
-        runQueuedPromiseJobs();
         expect(resolvedValues).toEqual([3, 42, "foo"]);
         expect(wasRejected).toBeFalse();
     });

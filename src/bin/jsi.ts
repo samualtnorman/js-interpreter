@@ -14,8 +14,9 @@ const context: Context = {
 	constants: new Map,
 	statementLabel: undefined,
 	this: undefined,
-	callSuper: undefined,
-	getSuperProperty: undefined
+	callSuper: null,
+	getSuperProperty: null,
+	signal: null
 }
 
 while (true) {

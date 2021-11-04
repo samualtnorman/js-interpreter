@@ -8,7 +8,7 @@ test("basic functionality", () => {
     let o = {};
     expect(o.constructor).toBe(Object);
 
-    a = [];
+    const a = [];
     expect(a.constructor).toBe(Array);
 
     expect(Object.prototype).toHaveConfigurableProperty("constructor");

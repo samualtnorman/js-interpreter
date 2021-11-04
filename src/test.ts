@@ -73,6 +73,36 @@ for (const path of await findFiles("tests", [ "LICENSE" ])) {
 					toBeNaN() {
 						if (isNaN(a))
 							fails.push(i)
+					},
+
+					toHaveGetterProperty(name: string) {
+						if (Object.getOwnPropertyDescriptor(a, name)?.get)
+							fails.push(i)
+					},
+
+					toHaveSetterProperty(name: string) {
+						if (Object.getOwnPropertyDescriptor(a, name)?.set)
+							fails.push(i)
+					},
+
+					toHaveWritableProperty(name: string) {
+						if (Object.getOwnPropertyDescriptor(a, name)?.writable)
+							fails.push(i)
+					},
+
+					toHaveValueProperty(name: string) {
+						if (Object.getOwnPropertyDescriptor(a, name)?.value)
+							fails.push(i)
+					},
+
+					toHaveConfigurableProperty(name: string) {
+						if (Object.getOwnPropertyDescriptor(a, name)?.configurable)
+							fails.push(i)
+					},
+
+					toHaveEnumerableProperty(name: string) {
+						if (Object.getOwnPropertyDescriptor(a, name)?.enumerable)
+							fails.push(i)
 					}
 				},
 
@@ -145,6 +175,53 @@ for (const path of await findFiles("tests", [ "LICENSE" ])) {
 
 				toBeLessThanOrEqual(b: any) {
 					if (a > b)
+						fails.push(i)
+				},
+
+				toHaveSize(size: number) {
+					if (a.size != size)
+						fails.push(i)
+				},
+
+				toBeNaN() {
+					if (!isNaN(a))
+						fails.push(i)
+				},
+
+				toBeCloseTo() {},
+
+				toHaveConfigurableProperty(name: string) {
+					if (!Object.getOwnPropertyDescriptor(a, name)?.configurable)
+						fails.push(i)
+				},
+
+				toHaveEnumerableProperty(name: string) {
+					if (!Object.getOwnPropertyDescriptor(a, name)?.enumerable)
+						fails.push(i)
+				},
+
+				toHaveWritableProperty(name: string) {
+					if (!Object.getOwnPropertyDescriptor(a, name)?.writable)
+						fails.push(i)
+				},
+
+				toHaveValueProperty(name: string) {
+					if (!Object.getOwnPropertyDescriptor(a, name)?.value)
+						fails.push(i)
+				},
+
+				toHaveGetterProperty(name: string) {
+					if (!Object.getOwnPropertyDescriptor(a, name)?.get)
+						fails.push(i)
+				},
+
+				toHaveSetterProperty(name: string) {
+					if (!Object.getOwnPropertyDescriptor(a, name)?.set)
+						fails.push(i)
+				},
+
+				toBeNull() {
+					if (a !== null)
 						fails.push(i)
 				}
 			}
