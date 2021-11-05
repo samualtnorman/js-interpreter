@@ -168,21 +168,23 @@ export function run(node: Node, context: Context): any {
 			for (node.init ? run(node.init, forContext) : undefined; node.test ? run(node.test, forContext) : true; node.update ? run(node.update, forContext) : undefined) {
 				finalValue = run(node.body, forContext)
 
-				if (!context.signal)
+				if (!forContext.signal)
 					continue
 
-				if (context.signal.type == SignalType.Break) {
-					if (!context.signal.label)
-						context.signal = null
+				if (forContext.signal.type == SignalType.Break) {
+					if (forContext.signal.label)
+						context.signal = forContext.signal
 
 					return finalValue
 				}
 
-				if (context.signal.type == SignalType.Continue) {
-					if (context.signal.label && context.signal.label != context.statementLabel)
+				if (forContext.signal.type == SignalType.Continue) {
+					if (forContext.signal.label && forContext.signal.label != forContext.statementLabel) {
+						context.signal = forContext.signal
 						return finalValue
+					}
 
-					context.signal = null
+					forContext.signal = null
 				}
 			}
 
@@ -197,12 +199,50 @@ export function run(node: Node, context: Context): any {
 					case "=":
 						return setVariable(node.left.name, left = run(node.right, context), context)
 
+					case "*=":
+						return setVariable(node.left.name, left *= run(node.right, context), context)
+
+					case "**=":
+						return setVariable(node.left.name, left **= run(node.right, context), context)
+
+					case "/=":
+						return setVariable(node.left.name, left /= run(node.right, context), context)
+
+					case "%=":
+						return setVariable(node.left.name, left %= run(node.right, context), context)
+
 					case "+=":
 						return setVariable(node.left.name, left += run(node.right, context), context)
 
-					default:
-						// @ts-expect-error
-						throw new AssertError(`unknown assignment operator "${node.operator}"`)
+					case "-=":
+						return setVariable(node.left.name, left -= run(node.right, context), context)
+
+					case "<<=":
+						return setVariable(node.left.name, left <<= run(node.right, context), context)
+
+					case ">>=":
+						return setVariable(node.left.name, left >>= run(node.right, context), context)
+
+					case ">>>=":
+						return setVariable(node.left.name, left >>>= run(node.right, context), context)
+
+					case "&=":
+						return setVariable(node.left.name, left &= run(node.right, context), context)
+
+					case "^=":
+						return setVariable(node.left.name, left ^= run(node.right, context), context)
+
+					case "|=":
+						return setVariable(node.left.name, left |= run(node.right, context), context)
+
+					case "&&=":
+						return setVariable(node.left.name, left &&= run(node.right, context), context)
+
+					case "||=":
+						return setVariable(node.left.name, left ||= run(node.right, context), context)
+
+					case "??=":
+						return setVariable(node.left.name, left ??= run(node.right, context), context)
 				}
 			}
 
@@ -219,67 +259,102 @@ export function run(node: Node, context: Context): any {
 				case "=":
 					return object[key] = run(node.right, context)
 
+				case "*=":
+					return object[key] *= run(node.right, context)
+
+				case "**=":
+					return object[key] **= run(node.right, context)
+
+				case "/=":
+					return object[key] /= run(node.right, context)
+
+				case "%=":
+					return object[key] %= run(node.right, context)
+
 				case "+=":
 					return object[key] += run(node.right, context)
 
-				default:
-					// @ts-expect-error
-					throw new AssertError(`unknown assignment operator "${node.operator}" (member)`)
+				case "-=":
+					return object[key] -= run(node.right, context)
+
+				case "<<=":
+					return object[key] <<= run(node.right, context)
+
+				case ">>=":
+					return object[key] >>= run(node.right, context)
+
+				case ">>>=":
+					return object[key] >>>= run(node.right, context)
+
+				case "&=":
+					return object[key] &= run(node.right, context)
+
+				case "^=":
+					return object[key] ^= run(node.right, context)
+
+				case "|=":
+					return object[key] |= run(node.right, context)
+
+				case "&&=":
+					return object[key] &&= run(node.right, context)
+
+				case "||=":
+					return object[key] ||= run(node.right, context)
+
+				case "??=":
+					return object[key] ??= run(node.right, context)
 			}
 		}
 
 		case "BinaryExpression": {
 			switch (node.operator) {
-				case "<":
-					return run(node.left, context) < run(node.right, context)
-
 				case "+":
 					return run(node.left, context) + run(node.right, context)
-
-				case "==":
-					return run(node.left, context) == run(node.right, context)
-
-				case "===":
-					return run(node.left, context) === run(node.right, context)
-
-				case "instanceof":
-					return run(node.left, context) instanceof run(node.right, context)
 
 				case "-":
 					return run(node.left, context) - run(node.right, context)
 
-				case ">=":
-					return run(node.left, context) >= run(node.right, context)
-
-				case ">":
-					return run(node.left, context) > run(node.right, context)
-
-				case "!==":
-					return run(node.left, context) !== run(node.right, context)
+				case "/":
+					return run(node.left, context) / run(node.right, context)
 
 				case "*":
 					return run(node.left, context) * run(node.right, context)
 
-				case "<=":
-					return run(node.left, context) <= run(node.right, context)
-
 				case "%":
 					return run(node.left, context) % run(node.right, context)
-
-				case "/":
-					return run(node.left, context) / run(node.right, context)
 
 				case "**":
 					return run(node.left, context) ** run(node.right, context)
 
-				case "|":
-					return run(node.left, context) | run(node.right, context)
+				case "in":
+					return run(node.left, context) in run(node.right, context)
 
-				case "&":
-					return run(node.left, context) & run(node.right, context)
+				case "instanceof":
+					return run(node.left, context) instanceof run(node.right, context)
 
-				case "^":
-					return run(node.left, context) ^ run(node.right, context)
+				case "<":
+					return run(node.left, context) < run(node.right, context)
+
+				case ">":
+					return run(node.left, context) > run(node.right, context)
+
+				case "<=":
+					return run(node.left, context) <= run(node.right, context)
+
+				case ">=":
+					return run(node.left, context) >= run(node.right, context)
+
+				case "==":
+					return run(node.left, context) == run(node.right, context)
+
+				case "!=":
+					return run(node.left, context) != run(node.right, context)
+
+				case "===":
+					return run(node.left, context) === run(node.right, context)
+
+				case "!==":
+					return run(node.left, context) !== run(node.right, context)
 
 				case "<<":
 					return run(node.left, context) << run(node.right, context)
@@ -290,12 +365,14 @@ export function run(node: Node, context: Context): any {
 				case ">>>":
 					return run(node.left, context) >>> run(node.right, context)
 
-				case "!=":
-					return run(node.left, context) != run(node.right, context)
+				case "&":
+					return run(node.left, context) & run(node.right, context)
 
-				default:
-					// @ts-expect-error
-					throw new AssertError(`unknown binary operator "${node.operator}"`)
+				case "|":
+					return run(node.left, context) | run(node.right, context)
+
+				case "^":
+					return run(node.left, context) ^ run(node.right, context)
 			}
 		}
 
@@ -309,35 +386,56 @@ export function run(node: Node, context: Context): any {
 			for (const childNode of node.body) {
 				finalValue = run(childNode, blockScope)
 
-				if (context.signal)
+				if (blockScope.signal) {
+					context.signal = blockScope.signal
 					return finalValue
+				}
 			}
 
 			return finalValue
 		}
 
 		case "UpdateExpression": {
-			assert(node.argument.type == "Identifier", `node.argument.type was "${node.argument.type}"`)
+			if (node.argument.type == "Identifier") {
+				let value = run(node.argument, context)
 
-			let value = run(node.argument, context)
+				switch (node.operator) {
+					case "++": {
+						const returnValue = node.prefix ? ++value : value++
+						setVariable(node.argument.name, value, context)
+						return returnValue
+					}
 
-			switch (node.operator) {
-				case "++": {
-					const returnValue = node.prefix ? ++value : value++
-					setVariable(node.argument.name, value, context)
-					return returnValue
+					case "--": {
+						const returnValue = node.prefix ? --value : value--
+						setVariable(node.argument.name, value, context)
+						return returnValue
+					}
 				}
-
-				case "--": {
-					const returnValue = node.prefix ? --value : value--
-					setVariable(node.argument.name, value, context)
-					return returnValue
-				}
-
-				default:
-					// @ts-expect-error
-					throw new AssertError(`unknown update operator "${node.operator}"`)
 			}
+
+			if (node.argument.type == "MemberExpression") {
+				const object = run(node.argument.object, context)
+
+				const key = node.argument.computed
+					? run(node.argument.property, context)
+					: node.argument.property.name
+
+				if (node.operator == "++") {
+					if (node.prefix)
+						return ++object[key]
+
+					return object[key]++
+				}
+
+				if (node.prefix)
+					return --object[key]
+
+				return object[key]--
+			}
+
+			// @ts-expect-error
+			throw new AssertError(`node.argument.type was "${node.argument.type}"`)
 		}
 
 		case "ReturnStatement": {
@@ -383,6 +481,7 @@ export function run(node: Node, context: Context): any {
 							else if (property.key.type == "Literal")
 								name = String(property.key.value)
 							else
+								// @ts-expect-error
 								throw new AssertError(`property.key.type was "${property.key.type}"`)
 
 							object[name] = property.value.type == "FunctionDeclaration" || property.value.type == "FunctionExpression" || property.value.type == "ArrowFunctionExpression"
@@ -540,15 +639,6 @@ export function run(node: Node, context: Context): any {
 			assert(node.prefix, `node.prefix was false`)
 
 			switch (node.operator) {
-				case "typeof":
-					return typeof run(node.argument, context)
-
-				case "-":
-					return -run(node.argument, context)
-
-				case "+":
-					return +run(node.argument, context)
-
 				case "delete": {
 					if (node.argument.type != "MemberExpression")
 						return true
@@ -560,15 +650,23 @@ export function run(node: Node, context: Context): any {
 					return delete run(node.argument.object, context)[node.argument.property.name]
 				}
 
+				case "void":
+					return void run(node.argument, context)
+
+				case "typeof":
+					return typeof run(node.argument, context)
+
+				case "+":
+					return +run(node.argument, context)
+
+				case "-":
+					return -run(node.argument, context)
+
 				case "~":
 					return ~run(node.argument, context)
 
 				case "!":
 					return !run(node.argument, context)
-
-				default:
-					// @ts-expect-error
-					throw new AssertError(`unknown unary operator "${node.operator}"`)
 			}
 		}
 
@@ -587,9 +685,8 @@ export function run(node: Node, context: Context): any {
 				case "||":
 					return run(node.left, context) || run(node.right, context)
 
-				default:
-					// @ts-expect-error
-					throw new AssertError(`unknown logical operator "${node.operator}"`)
+				case "??":
+					return run(node.left, context) ?? run(node.right, context)
 			}
 		}
 
@@ -753,6 +850,15 @@ export function run(node: Node, context: Context): any {
 			return
 		}
 
+		case "SequenceExpression": {
+			let finalValue
+
+			for (const expression of node.expressions)
+				finalValue = run(expression, context)
+
+			return finalValue
+		}
+
 		default: {
 			console.error(node)
 			throw new AssertError(`unknown node type "${node.type}"`)
@@ -862,9 +968,9 @@ export function createFunction(node: Node, context: Context, name = "") {
 				if (node.body.type == "BlockStatement") {
 					run(node.body, functionContext)
 
-					if (context.signal && context.signal.type == SignalType.Return) {
-						const { value } = context.signal
-						context.signal = null
+					if (functionContext.signal && functionContext.signal.type == SignalType.Return) {
+						const { value } = functionContext.signal
+						functionContext.signal = null
 						return value
 					}
 
@@ -907,9 +1013,9 @@ export function createFunction(node: Node, context: Context, name = "") {
 			if (node.body.type == "BlockStatement") {
 				run(node.body, functionContext)
 
-				if (context.signal && context.signal.type == SignalType.Return) {
-					const { value } = context.signal
-					context.signal = null
+				if (functionContext.signal && functionContext.signal.type == SignalType.Return) {
+					const { value } = functionContext.signal
+					functionContext.signal = null
 					return value
 				}
 

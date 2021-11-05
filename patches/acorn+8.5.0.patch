@@ -1,124 +1,387 @@
 diff --git a/node_modules/acorn/dist/acorn.d.ts b/node_modules/acorn/dist/acorn.d.ts
-index 861b357..b030295 100644
+index 861b357..02bc3fc 100644
 --- a/node_modules/acorn/dist/acorn.d.ts
 +++ b/node_modules/acorn/dist/acorn.d.ts
-@@ -60,14 +60,119 @@ declare namespace acorn {
+@@ -2,7 +2,7 @@ export as namespace acorn
+ export = acorn
+ 
+ declare namespace acorn {
+-  function parse(input: string, options: Options): Node
++  function parse(input: string, options: Options): Node.Program
+ 
+   function parseExpressionAt(input: string, pos: number, options: Options): Node
+ 
+@@ -60,14 +60,373 @@ declare namespace acorn {
      constructor(p: Parser, start: Position, end: Position)
    }
  
 -  class Node {
 -    type: string
-+  type Node = {
++  interface NodeBase {
      start: number
      end: number
      loc?: SourceLocation
      sourceFile?: string
      range?: [number, number]
 -    constructor(parser: Parser, pos: number, loc?: SourceLocation)
-+  } & ({
-+    type: "Program"
-+    body: Node[]
-+  } | {
-+    type: "VariableDeclaration"
-+    declarations: Node[]
-+  } | {
-+    type: "VariableDeclarator"
-+    id: Node
-+    init: Node | null
-+  } | {
-+    type: "Identifier"
-+    name: string
-+  } | {
-+    type: "Literal"
-+    value: unknown
-+    raw: string
-+  } | {
-+    type: "ExpressionStatement"
-+    expression: Node
-+  } | {
-+    type: "CallExpression"
-+    callee: Node
-+    arguments: Node[]
-+    optional: boolean
-+  } | {
-+    type: "MemberExpression"
-+    object: Node
-+    property: Node
-+    computed: boolean
-+    optional: boolean
-+  } | {
-+    type: "FunctionDeclaration"
-+    id: Node
-+    expression: boolean
-+    generator: boolean
-+    async: boolean
-+    params: Node[]
-+    body: Node
-+  } | {
-+    type: "BlockStatement"
-+    body: Node[]
-+  } | {
-+    type: "ForStatement"
-+    init: Node
-+    test: Node
-+    update: Node
-+    body: Node
-+  } | {
-+    type: "AssignmentExpression"
-+    operator: string
-+    left: Node
-+    right: Node
-+  } | {
-+    type: "BinaryExpression"
-+    left: Node
-+    operator: string
-+    right: Node
-+  } | {
-+    type: "UpdateExpression"
-+    operator: string
-+    prefix: boolean
-+    argument: Node
-+  } | {
-+    type: "ReturnStatement"
-+    argument: Node
-+  } | {
-+    type: "ArrowFunctionExpression"
-+    id: null
-+    expression: boolean
-+    generator: boolean
-+    async: boolean
-+    params: Node[]
-+    body: Node
-+  } | {
-+    type: "ArrayExpression"
-+    elements: Node[]
-+  } | {
-+    type: "ObjectExpression"
-+    properties: Node[]
-+  } | {
-+    type: "FunctionExpression"
-+    id: null
-+    expression: boolean
-+    generator: boolean
-+    async: boolean
-+    params: Node[]
-+    body: Node
-+  } | {
-+    type: "TemplateLiteral"
-+    expressions: Node[]
-+    quasis: Node[]
-+  } | {
-+    type: "TemplateElement"
-+    value: {
-+      raw: string
-+      cooked: string
++  }
++
++  namespace Node {
++    type Program = NodeBase & {
++      type: 'Program'
++      body: Node[]
++      sourceType: 'script' | 'module'
 +    }
-+  } | {
-+    type: "IfStatement",
-+    test: Node
-+    consequent: Node
-+    alternate: Node
-+  })
++
++    type VariableDeclaration = NodeBase & {
++      type: 'VariableDeclaration'
++      declarations: VariableDeclarator[]
++      kind: 'var' | 'let' | 'const'
++    }
++
++    type VariableDeclarator = NodeBase & {
++      type: 'VariableDeclarator'
++      id: Identifier
++      init: Node | null
++    }
++
++    type Identifier = NodeBase & {
++      type: 'Identifier'
++      name: string
++    }
++
++    type Literal = NodeBase & {
++      type: 'Literal'
++      raw: string
++    } & ({
++      value: boolean | number | string
++    } | {
++      value: bigint
++      bigint: string
++    })
++
++    type ExpressionStatement = NodeBase & {
++      type: 'ExpressionStatement'
++      expression: Node
++    }
++
++    type CallExpression = NodeBase & {
++      type: 'CallExpression'
++      callee: Node
++      arguments: Node[]
++      optional: boolean
++    }
++
++    type MemberExpression = NodeBase & {
++      type: 'MemberExpression'
++      object: Node
++      optional: boolean
++    } & ({
++      property: Identifier
++      computed: false
++    } | {
++      property: Node
++      computed: true
++    })
++
++    type FunctionDeclaration = NodeBase & {
++      type: 'FunctionDeclaration'
++      id: Node
++      expression: boolean
++      generator: boolean
++      async: boolean
++      params: Node[]
++      body: Node
++    }
++
++    type BlockStatement = NodeBase & {
++      type: 'BlockStatement'
++      body: Node[]
++    }
++
++    type ClassBody = NodeBase & {
++      type: 'ClassBody'
++      body: Node[]
++    }
++
++    type ForStatement = NodeBase & {
++      type: 'ForStatement'
++      init: Node | null
++      test: Node | null
++      update: Node | null
++      body: Node
++    }
++
++    type AssignmentExpression = NodeBase & {
++      type: 'AssignmentExpression'
++      operator: '=' | '*=' | '**=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '>>>=' | '&=' | '^=' | '|=' | '&&=' | '||=' | '??='
++      left: Node
++      right: Node
++    }
++
++    type BinaryExpression = NodeBase & {
++      type: 'BinaryExpression'
++      left: Node
++      operator: '+' | '-' | '/' | '*' | '%' | '**' | 'in' | 'instanceof' | '<' | '>' | '<=' | '>=' | '==' | '!=' | '===' | '!==' | '<<' | '>>' | '>>>' | '&' | '|' | '^'
++      right: Node
++    }
++
++    type UpdateExpression = NodeBase & {
++      type: 'UpdateExpression'
++      operator: '++' | '--'
++      prefix: boolean
++      argument: Identifier
++    }
++
++    type ReturnStatement = NodeBase & {
++      type: 'ReturnStatement'
++      argument: Node | null
++    }
++
++    type ArrowFunctionExpression = NodeBase & {
++      type: 'ArrowFunctionExpression'
++      id: null
++      expression: boolean
++      generator: boolean
++      async: boolean
++      params: Node[]
++      body: Node
++    }
++
++    type ArrayExpression = NodeBase & {
++      type: 'ArrayExpression'
++      elements: (Node | null)[]
++    }
++
++    type ObjectExpression = NodeBase & {
++      type: 'ObjectExpression'
++      properties: Node[]
++    }
++
++    type FunctionExpression = NodeBase & {
++      type: 'FunctionExpression'
++      id: Identifier | null
++      expression: boolean
++      generator: boolean
++      async: boolean
++      params: Node[]
++      body: Node
++    }
++
++    type TemplateLiteral = NodeBase & {
++      type: 'TemplateLiteral'
++      expressions: Node[]
++      quasis: TemplateElement[]
++    }
++
++    type TemplateElement = NodeBase & {
++      type: 'TemplateElement'
++      tail: boolean
++
++      value: {
++        raw: string
++        cooked: string
++      }
++    }
++
++    type IfStatement = NodeBase & {
++      type: 'IfStatement'
++      test: Node
++      consequent: Node
++      alternate: Node | null
++    }
++
++    type LabeledStatement = NodeBase & {
++      type: 'LabeledStatement'
++      body: Node
++      label: Node
++    }
++
++    type BreakStatement = NodeBase & {
++      type: 'BreakStatement'
++      label: Node | null
++    }
++
++    type DoWhileStatement = NodeBase & {
++      type: 'DoWhileStatement'
++      body: Node
++      test: Node
++    }
++
++    type ContinueStatement = NodeBase & {
++      type: 'ContinueStatement'
++      label: Node | null
++    }
++
++    type NewExpression = NodeBase & {
++      type: 'NewExpression'
++      callee: Node
++      arguments: Node[]
++    }
++
++    type Property = NodeBase & {
++      type: 'Property'
++      method: boolean
++      shorthand: boolean
++      kind: 'init' | 'get' | 'set'
++      value: Node
++    } & ({
++      computed: true
++      key: Node
++    } | {
++      computed: false
++      key: Identifier | Literal
++    })
++
++    type ThrowStatement = NodeBase & {
++      type: 'ThrowStatement'
++      argument: Node
++    }
++
++    type SpreadElement = NodeBase & {
++      type: 'SpreadElement'
++      argument: Node
++    }
++
++    type AwaitExpression = NodeBase & {
++      type: 'AwaitExpression'
++      argument: Node
++    }
++
++    type AssignmentPattern = NodeBase & {
++      type: 'AssignmentPattern'
++      left: Node
++      right: Node
++    }
++
++    type UnaryExpression = NodeBase & {
++      type: 'UnaryExpression'
++      operator: 'delete' | 'void' | 'typeof' | '+' | '-' | '~' | '!'
++      prefix: true
++      argument: Node
++    }
++
++    type ThisExpression = NodeBase & {
++      type: 'ThisExpression'
++    }
++
++    type EmptyStatement = NodeBase & {
++      type: 'EmptyStatement'
++    }
++
++    type Super = NodeBase & {
++      type: 'Super'
++    }
++
++    type LogicalExpression = NodeBase & {
++      type: 'LogicalExpression'
++      left: Node
++      operator: '&&' | '||' | '??'
++      right: Node
++    }
++
++    type ConditionalExpression = NodeBase & {
++      type: 'ConditionalExpression'
++      test: Node
++      consequent: Node
++      alternate: Node
++    }
++
++    type TryStatement = NodeBase & {
++      type: 'TryStatement'
++      block: Node
++      handler: Node | null
++      finalizer: Node | null
++    }
++
++    type CatchClause = NodeBase & {
++      type: 'CatchClause'
++      param: Node | null
++      body: Node
++    }
++
++    type ClassDeclaration = NodeBase & {
++      type: 'ClassDeclaration'
++      id: Node
++      superClass: Node | null
++      body: Node
++    }
++
++    type PropertyDefinition = NodeBase & {
++      type: 'PropertyDefinition'
++      static: boolean
++      computed: boolean
++      key: Node
++      value: Node
++    }
++
++    type MethodDefinition = NodeBase & {
++      type: 'MethodDefinition'
++      static: boolean
++      computed: boolean
++      key: Node
++      kind: 'method' | 'constructor'
++      value: Node
++    }
++
++    type SequenceExpression = NodeBase & {
++      type: "SequenceExpression"
++      expressions: Node[]
++    }
++
++    type YieldExpression = NodeBase & {
++      type: "YieldExpression"
++      delegate: boolean
++      argument: Node
++    }
++  }
++
++  type Node = Node.Program
++    | Node.VariableDeclaration
++    | Node.VariableDeclarator
++    | Node.Identifier
++    | Node.Literal
++    | Node.Literal
++    | Node.ExpressionStatement
++    | Node.CallExpression
++    | Node.MemberExpression
++    | Node.FunctionDeclaration
++    | Node.BlockStatement
++    | Node.ClassBody
++    | Node.ForStatement
++    | Node.AssignmentExpression
++    | Node.BinaryExpression
++    | Node.UpdateExpression
++    | Node.ReturnStatement
++    | Node.ArrowFunctionExpression
++    | Node.ArrayExpression
++    | Node.ObjectExpression
++    | Node.FunctionExpression
++    | Node.TemplateLiteral
++    | Node.TemplateElement
++    | Node.IfStatement
++    | Node.LabeledStatement
++    | Node.BreakStatement
++    | Node.DoWhileStatement
++    | Node.ContinueStatement
++    | Node.NewExpression
++    | Node.Property
++    | Node.ThrowStatement
++    | Node.SpreadElement
++    | Node.AwaitExpression
++    | Node.AssignmentPattern
++    | Node.UnaryExpression
++    | Node.ThisExpression
++    | Node.EmptyStatement
++    | Node.Super
++    | Node.LogicalExpression
++    | Node.ConditionalExpression
++    | Node.TryStatement
++    | Node.CatchClause
++    | Node.ClassDeclaration
++    | Node.PropertyDefinition
++    | Node.MethodDefinition
++    | Node.SequenceExpression
 +
 +  const Node: {
 +    new(parser: Parser, pos: number, loc?: SourceLocation): Node
