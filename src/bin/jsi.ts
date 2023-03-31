@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { parseExpression } from "@babel/parser"
+import { parse } from "@babel/parser"
 import type { Node } from "@babel/types"
 import { promises as fsPromises } from "fs"
 import { evaluate, run, type Context } from ".."
@@ -29,7 +29,7 @@ else {
 
 		do {
 			try {
-				node = parseExpression(code)
+				node = parse(code)
 			} catch (error) {
 				assert(isRecord(error))
 				assert(typeof error.pos == `number`)
