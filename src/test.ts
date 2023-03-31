@@ -1,52 +1,54 @@
-import { deepEqual as deepEquals } from "fast-equals"
 import { promises as fsPromises } from "fs"
 import { evaluate } from "."
-import { findFiles, is } from "./lib"
+import { findFiles } from "@samual/lib/findFiles"
+import { is } from "@samual/lib/is"
+import { deeplyEquals } from "@samual/lib/deeplyEquals"
 
 const { readFile } = fsPromises
 
-for (const path of await findFiles("tests", [ "LICENSE" ])) {
+for (const path of await findFiles(`tests`, [ `LICENSE` ])) {
 	console.log(`\n${path}`)
 
 	let fails: number[] = []
-	let i = 0
+	let index = 0
 
-	evaluate(await readFile(path, { encoding: "utf-8" }), {
+	// TODO this might need fixing
+	// eslint-disable-next-line no-await-in-loop
+	evaluate(await readFile(path, { encoding: `utf-8` }), Object.assign(Object.create(globalThis), {
 		test(name: string, callback: () => void) {
 			console.log(`\t${name}`)
 			fails = []
-
 			callback()
 
-			if (i) {
+			if (index) {
 				if (fails.length)
-					console.error(`\t\t${fails.join(", ")}`)
+					console.error(`\t\t${fails.join(`, `)}`)
 
-				i = 0
+				index = 0
 			} else
 				console.error(`\t\tno tests ran in "${name}"`)
 		},
 
 		expect(a: any) {
-			i++
+			index++
 
 			return {
 				toBe(b: any) {
 					if (a != b)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toEval() {
 					try {
 						evaluate(a)
 					} catch {
-						fails.push(i)
+						fails.push(index)
 					}
 				},
 
 				toEvalTo(b: any) {
 					if (evaluate(a) != b)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				not: {
@@ -57,56 +59,56 @@ for (const path of await findFiles("tests", [ "LICENSE" ])) {
 							return
 						}
 
-						fails.push(i)
+						fails.push(index)
 					},
 
 					toBe(b: any) {
 						if (a == b)
-							fails.push(i)
+							fails.push(index)
 					},
 
 					toHaveProperty(name: string) {
 						if (name in a)
-							fails.push(i)
+							fails.push(index)
 					},
 
 					toBeNaN() {
 						if (isNaN(a))
-							fails.push(i)
+							fails.push(index)
 					},
 
 					toHaveGetterProperty(name: string) {
 						if (Object.getOwnPropertyDescriptor(a, name)?.get)
-							fails.push(i)
+							fails.push(index)
 					},
 
 					toHaveSetterProperty(name: string) {
 						if (Object.getOwnPropertyDescriptor(a, name)?.set)
-							fails.push(i)
+							fails.push(index)
 					},
 
 					toHaveWritableProperty(name: string) {
 						if (Object.getOwnPropertyDescriptor(a, name)?.writable)
-							fails.push(i)
+							fails.push(index)
 					},
 
 					toHaveValueProperty(name: string) {
 						if (Object.getOwnPropertyDescriptor(a, name)?.value)
-							fails.push(i)
+							fails.push(index)
 					},
 
 					toHaveConfigurableProperty(name: string) {
 						if (Object.getOwnPropertyDescriptor(a, name)?.configurable)
-							fails.push(i)
+							fails.push(index)
 					},
 
 					toHaveEnumerableProperty(name: string) {
 						if (Object.getOwnPropertyDescriptor(a, name)?.enumerable)
-							fails.push(i)
+							fails.push(index)
 					}
 				},
 
-				toThrowWithMessage(constructor: Function, message: string) {
+				toThrowWithMessage(constructor: { prototype: any }, _message: string) {
 					try {
 						a()
 					} catch (error) {
@@ -114,34 +116,36 @@ for (const path of await findFiles("tests", [ "LICENSE" ])) {
 							return
 					}
 
-					fails.push(i)
+					fails.push(index)
 				},
 
 				toHaveLength(length: number) {
 					if (a.length != length)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toBeFalse() {
 					if (a !== false)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toBeTrue() {
 					if (a !== true)
-						fails.push(i)
+						fails.push(index)
 				},
 
+				// eslint-disable-next-line @typescript-eslint/ban-types
 				toBeInstanceOf(constructor: Function) {
 					if (!(a instanceof constructor))
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toEqual(b: any) {
-					if (!deepEquals(a, b))
-						fails.push(i)
+					if (!deeplyEquals(a, b))
+						fails.push(index)
 				},
 
+				// eslint-disable-next-line @typescript-eslint/ban-types
 				toThrow(constructor: Function) {
 					try {
 						a()
@@ -150,79 +154,81 @@ for (const path of await findFiles("tests", [ "LICENSE" ])) {
 							return
 					}
 
-					fails.push(i)
+					fails.push(index)
 				},
 
 				toBeUndefined() {
 					if (a !== undefined)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toBeGreaterThan(b: any) {
 					if (a <= b)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toBeLessThan(b: any) {
 					if (a >= b)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toBeGreaterThanOrEqual(b: any) {
 					if (a < b)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toBeLessThanOrEqual(b: any) {
 					if (a > b)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toHaveSize(size: number) {
 					if (a.size != size)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toBeNaN() {
 					if (!isNaN(a))
-						fails.push(i)
+						fails.push(index)
 				},
 
-				toBeCloseTo() {},
+				toBeCloseTo() {
+					throw new Error(`Not implemented`)
+				},
 
 				toHaveConfigurableProperty(name: string) {
 					if (!Object.getOwnPropertyDescriptor(a, name)?.configurable)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toHaveEnumerableProperty(name: string) {
 					if (!Object.getOwnPropertyDescriptor(a, name)?.enumerable)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toHaveWritableProperty(name: string) {
 					if (!Object.getOwnPropertyDescriptor(a, name)?.writable)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toHaveValueProperty(name: string) {
 					if (!Object.getOwnPropertyDescriptor(a, name)?.value)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toHaveGetterProperty(name: string) {
 					if (!Object.getOwnPropertyDescriptor(a, name)?.get)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toHaveSetterProperty(name: string) {
 					if (!Object.getOwnPropertyDescriptor(a, name)?.set)
-						fails.push(i)
+						fails.push(index)
 				},
 
 				toBeNull() {
 					if (a !== null)
-						fails.push(i)
+						fails.push(index)
 				}
 			}
 		},
@@ -236,5 +242,5 @@ for (const path of await findFiles("tests", [ "LICENSE" ])) {
 				console.error(error)
 			}
 		}
-	})
+	}))
 }

@@ -1,22 +1,13 @@
 {
 	"compilerOptions": {
-		"target": "ES2019", /* ES2019 is oldest properly supported ES version in Node 12 which is the oldest currently supported Node version */
-		"module": "ESNext",
-		"strict": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"declaration": true,
-		"outDir": "..",
-		"useUnknownInCatchVariables": true,
 		"exactOptionalPropertyTypes": true,
-		"noImplicitOverride": true,
-		"moduleResolution": "Node",
-		"resolveJsonModule": true,
-		"checkJs": true,
-		"allowJs": true,
-		"noFallthroughCasesInSwitch": true
+		"noUncheckedIndexedAccess": true,
+		"strict": true,
+		"useUnknownInCatchVariables": true,
+		"strictNullChecks": true,
+		"paths": { "/": [ "." ], "/*": [ "./*" ] },
+		"plugins": [ { "transform": "typescript-transform-paths", "afterDeclarations": true } ]
 	},
-	"exclude": [],
-	"references": [ { "path": ".." } ]
+	"extends": "..",
+	"include": [ "**/*" ]
 }
