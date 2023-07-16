@@ -4,8 +4,8 @@ import * as babel from "@babel/types"
 import { assert, AssertError } from "@samual/lib/assert"
 import { objectHasOwn } from "@samual/lib/objectHasOwn"
 
-const enum SignalType {
-	Return, Break, Continue
+export const enum SignalKind {
+	Return, Break, Continue, Await
 }
 
 export type Context = {
@@ -16,17 +16,14 @@ export type Context = {
 	callSuper: ((...args: any) => any) | undefined
 	getSuperProperty: ((name: string) => any) | undefined
 
-	signal: {
-		type: SignalType.Break | SignalType.Continue
-		label: string | undefined
-	} | {
-		type: SignalType.Return
-		value: any
-	} | undefined
+	signal:
+		{ kind: SignalKind.Break | SignalKind.Continue, label: string | undefined } |
+		{ kind: SignalKind.Return | SignalKind.Await, value: any } |
+		undefined
 }
 
-export function evaluate(code: string, variables = Object.create(globalThis)) {
-	return run(parse(code), {
+export function evaluateString(code: string, variables = Object.create(globalThis)) {
+	return evaluateNode(parse(code, { sourceType: `module` }), {
 		variables,
 		constants: Object.create(null),
 		statementLabel: undefined,
@@ -37,7 +34,7 @@ export function evaluate(code: string, variables = Object.create(globalThis)) {
 	})
 }
 
-export function run(node: Node, context: Context): any {
+export function evaluateNode(node: Node, context: Context): any {
 	switch (node.type) {
 		case `Program`: {
 			hoist(node.body, context)
@@ -45,7 +42,7 @@ export function run(node: Node, context: Context): any {
 			let finalValue
 
 			for (const childNode of node.body)
-				finalValue = run(childNode, context)
+				finalValue = evaluateNode(childNode, context)
 
 			return finalValue
 		}
@@ -67,7 +64,7 @@ export function run(node: Node, context: Context): any {
 				variableMap[id.name] = init
 					? (init.type == `FunctionExpression`
 						? createFunction(init, context, id.name)
-						: run(init, context)
+						: evaluateNode(init, context)
 					)
 					: undefined
 			}
@@ -76,7 +73,7 @@ export function run(node: Node, context: Context): any {
 		}
 
 		case `ExpressionStatement`: {
-			return run(node.expression, context)
+			return evaluateNode(node.expression, context)
 		}
 
 		case `CallExpression`: {
@@ -84,10 +81,13 @@ export function run(node: Node, context: Context): any {
 
 			for (const argument of node.arguments) {
 				if (argument.type == `SpreadElement`)
-					args.push(...run(argument.argument, context))
+					args.push(...evaluateNode(argument.argument, context))
 				else
-					args.push(run(argument, context))
+					args.push(evaluateNode(argument, context))
 			}
+
+			if (node.callee.type == `Import`)
+				return import(args[0])
 
 			if (node.callee.type == `Super`) {
 				if (context.callSuper)
@@ -97,24 +97,24 @@ export function run(node: Node, context: Context): any {
 			}
 
 			if (node.callee.type != `MemberExpression`)
-				return run(node.callee, context)(...args)
+				return evaluateNode(node.callee, context)(...args)
 
 			if (node.callee.object.type == `Super`) {
 				if (!context.getSuperProperty)
 					throw new TypeError(`must call super in class constructor`)
 
 				if (node.callee.computed)
-					return context.getSuperProperty(run(node.callee.property, context)).call(context.this, ...args)
+					return context.getSuperProperty(evaluateNode(node.callee.property, context)).call(context.this, ...args)
 
 				assert(node.callee.property.type == `Identifier`, `node.callee.property.type was "${node.callee.property.type}"`)
 
 				return context.getSuperProperty(node.callee.property.name).call(context.this, ...args)
 			}
 
-			const object = run(node.callee.object, context)
+			const object = evaluateNode(node.callee.object, context)
 
 			if (node.callee.computed)
-				return object[run(node.callee.property, context)](...args)
+				return object[evaluateNode(node.callee.property, context)](...args)
 
 			assert(node.callee.property.type == `Identifier`, `node.callee.property.type was "${node.callee.property.type}"`)
 
@@ -125,12 +125,12 @@ export function run(node: Node, context: Context): any {
 		}
 
 		case `MemberExpression`: {
-			const object = run(node.object, context)
+			const object = evaluateNode(node.object, context)
 
 			if (node.property.type == `Identifier` && !node.computed)
 				return object[node.property.name]
 
-			return object[run(node.property, context)]
+			return object[evaluateNode(node.property, context)]
 		}
 
 		case `Identifier`:
@@ -157,20 +157,20 @@ export function run(node: Node, context: Context): any {
 			const forContext = scopeContext(context)
 			let finalValue
 
-			for (node.init ? run(node.init, forContext) : undefined; node.test ? run(node.test, forContext) : true; node.update ? run(node.update, forContext) : undefined) {
-				finalValue = run(node.body, forContext)
+			for (node.init ? evaluateNode(node.init, forContext) : undefined; node.test ? evaluateNode(node.test, forContext) : true; node.update ? evaluateNode(node.update, forContext) : undefined) {
+				finalValue = evaluateNode(node.body, forContext)
 
 				if (!forContext.signal)
 					continue
 
-				if (forContext.signal.type == SignalType.Break) {
+				if (forContext.signal.kind == SignalKind.Break) {
 					if (forContext.signal.label)
 						context.signal = forContext.signal
 
 					return finalValue
 				}
 
-				if (forContext.signal.type == SignalType.Continue) {
+				if (forContext.signal.kind == SignalKind.Continue) {
 					if (forContext.signal.label && forContext.signal.label != forContext.statementLabel) {
 						context.signal = forContext.signal
 
@@ -190,52 +190,52 @@ export function run(node: Node, context: Context): any {
 
 				switch (node.operator) {
 					case `=`:
-						return setVariable(node.left.name, left = run(node.right, context), context)
+						return setVariable(node.left.name, left = evaluateNode(node.right, context), context)
 
 					case `*=`:
-						return setVariable(node.left.name, left *= run(node.right, context), context)
+						return setVariable(node.left.name, left *= evaluateNode(node.right, context), context)
 
 					case `**=`:
-						return setVariable(node.left.name, left **= run(node.right, context), context)
+						return setVariable(node.left.name, left **= evaluateNode(node.right, context), context)
 
 					case `/=`:
-						return setVariable(node.left.name, left /= run(node.right, context), context)
+						return setVariable(node.left.name, left /= evaluateNode(node.right, context), context)
 
 					case `%=`:
-						return setVariable(node.left.name, left %= run(node.right, context), context)
+						return setVariable(node.left.name, left %= evaluateNode(node.right, context), context)
 
 					case `+=`:
-						return setVariable(node.left.name, left += run(node.right, context), context)
+						return setVariable(node.left.name, left += evaluateNode(node.right, context), context)
 
 					case `-=`:
-						return setVariable(node.left.name, left -= run(node.right, context), context)
+						return setVariable(node.left.name, left -= evaluateNode(node.right, context), context)
 
 					case `<<=`:
-						return setVariable(node.left.name, left <<= run(node.right, context), context)
+						return setVariable(node.left.name, left <<= evaluateNode(node.right, context), context)
 
 					case `>>=`:
-						return setVariable(node.left.name, left >>= run(node.right, context), context)
+						return setVariable(node.left.name, left >>= evaluateNode(node.right, context), context)
 
 					case `>>>=`:
-						return setVariable(node.left.name, left >>>= run(node.right, context), context)
+						return setVariable(node.left.name, left >>>= evaluateNode(node.right, context), context)
 
 					case `&=`:
-						return setVariable(node.left.name, left &= run(node.right, context), context)
+						return setVariable(node.left.name, left &= evaluateNode(node.right, context), context)
 
 					case `^=`:
-						return setVariable(node.left.name, left ^= run(node.right, context), context)
+						return setVariable(node.left.name, left ^= evaluateNode(node.right, context), context)
 
 					case `|=`:
-						return setVariable(node.left.name, left |= run(node.right, context), context)
+						return setVariable(node.left.name, left |= evaluateNode(node.right, context), context)
 
 					case `&&=`:
-						return setVariable(node.left.name, left &&= run(node.right, context), context)
+						return setVariable(node.left.name, left &&= evaluateNode(node.right, context), context)
 
 					case `||=`:
-						return setVariable(node.left.name, left ||= run(node.right, context), context)
+						return setVariable(node.left.name, left ||= evaluateNode(node.right, context), context)
 
 					case `??=`:
-						return setVariable(node.left.name, left ??= run(node.right, context), context)
+						return setVariable(node.left.name, left ??= evaluateNode(node.right, context), context)
 				}
 
 				throw new Error(`Unhandled operator: ${node.operator}`)
@@ -243,60 +243,60 @@ export function run(node: Node, context: Context): any {
 
 			assert(node.left.type == `MemberExpression`, () => `node.left.type was "${node.left.type}"`)
 
-			const object: any = run(node.left.object, context)
+			const object: any = evaluateNode(node.left.object, context)
 
 			const key = node.left.property.type == `Identifier` && !node.left.computed
 				? node.left.property.name
-				: run(node.left.property, context)
+				: evaluateNode(node.left.property, context)
 
 			switch (node.operator) {
 				case `=`:
-					return object[key] = run(node.right, context)
+					return object[key] = evaluateNode(node.right, context)
 
 				case `*=`:
-					return object[key] *= run(node.right, context)
+					return object[key] *= evaluateNode(node.right, context)
 
 				case `**=`:
-					return object[key] **= run(node.right, context)
+					return object[key] **= evaluateNode(node.right, context)
 
 				case `/=`:
-					return object[key] /= run(node.right, context)
+					return object[key] /= evaluateNode(node.right, context)
 
 				case `%=`:
-					return object[key] %= run(node.right, context)
+					return object[key] %= evaluateNode(node.right, context)
 
 				case `+=`:
-					return object[key] += run(node.right, context)
+					return object[key] += evaluateNode(node.right, context)
 
 				case `-=`:
-					return object[key] -= run(node.right, context)
+					return object[key] -= evaluateNode(node.right, context)
 
 				case `<<=`:
-					return object[key] <<= run(node.right, context)
+					return object[key] <<= evaluateNode(node.right, context)
 
 				case `>>=`:
-					return object[key] >>= run(node.right, context)
+					return object[key] >>= evaluateNode(node.right, context)
 
 				case `>>>=`:
-					return object[key] >>>= run(node.right, context)
+					return object[key] >>>= evaluateNode(node.right, context)
 
 				case `&=`:
-					return object[key] &= run(node.right, context)
+					return object[key] &= evaluateNode(node.right, context)
 
 				case `^=`:
-					return object[key] ^= run(node.right, context)
+					return object[key] ^= evaluateNode(node.right, context)
 
 				case `|=`:
-					return object[key] |= run(node.right, context)
+					return object[key] |= evaluateNode(node.right, context)
 
 				case `&&=`:
-					return object[key] &&= run(node.right, context)
+					return object[key] &&= evaluateNode(node.right, context)
 
 				case `||=`:
-					return object[key] ||= run(node.right, context)
+					return object[key] ||= evaluateNode(node.right, context)
 
 				case `??=`:
-					return object[key] ??= run(node.right, context)
+					return object[key] ??= evaluateNode(node.right, context)
 			}
 
 			throw new Error(`Unhandled operator: ${node.operator}`)
@@ -305,70 +305,70 @@ export function run(node: Node, context: Context): any {
 		case `BinaryExpression`: {
 			switch (node.operator) {
 				case `+`:
-					return run(node.left, context) + run(node.right, context)
+					return evaluateNode(node.left, context) + evaluateNode(node.right, context)
 
 				case `-`:
-					return run(node.left, context) - run(node.right, context)
+					return evaluateNode(node.left, context) - evaluateNode(node.right, context)
 
 				case `/`:
-					return run(node.left, context) / run(node.right, context)
+					return evaluateNode(node.left, context) / evaluateNode(node.right, context)
 
 				case `*`:
-					return run(node.left, context) * run(node.right, context)
+					return evaluateNode(node.left, context) * evaluateNode(node.right, context)
 
 				case `%`:
-					return run(node.left, context) % run(node.right, context)
+					return evaluateNode(node.left, context) % evaluateNode(node.right, context)
 
 				case `**`:
-					return run(node.left, context) ** run(node.right, context)
+					return evaluateNode(node.left, context) ** evaluateNode(node.right, context)
 
 				case `in`:
-					return run(node.left, context) in run(node.right, context)
+					return evaluateNode(node.left, context) in evaluateNode(node.right, context)
 
 				case `instanceof`:
-					return run(node.left, context) instanceof run(node.right, context)
+					return evaluateNode(node.left, context) instanceof evaluateNode(node.right, context)
 
 				case `<`:
-					return run(node.left, context) < run(node.right, context)
+					return evaluateNode(node.left, context) < evaluateNode(node.right, context)
 
 				case `>`:
-					return run(node.left, context) > run(node.right, context)
+					return evaluateNode(node.left, context) > evaluateNode(node.right, context)
 
 				case `<=`:
-					return run(node.left, context) <= run(node.right, context)
+					return evaluateNode(node.left, context) <= evaluateNode(node.right, context)
 
 				case `>=`:
-					return run(node.left, context) >= run(node.right, context)
+					return evaluateNode(node.left, context) >= evaluateNode(node.right, context)
 
 				case `==`:
-					return run(node.left, context) == run(node.right, context)
+					return evaluateNode(node.left, context) == evaluateNode(node.right, context)
 
 				case `!=`:
-					return run(node.left, context) != run(node.right, context)
+					return evaluateNode(node.left, context) != evaluateNode(node.right, context)
 
 				case `===`:
-					return run(node.left, context) === run(node.right, context)
+					return evaluateNode(node.left, context) === evaluateNode(node.right, context)
 
 				case `!==`:
-					return run(node.left, context) !== run(node.right, context)
+					return evaluateNode(node.left, context) !== evaluateNode(node.right, context)
 
 				case `<<`:
-					return run(node.left, context) << run(node.right, context)
+					return evaluateNode(node.left, context) << evaluateNode(node.right, context)
 
 				case `>>`:
-					return run(node.left, context) >> run(node.right, context)
+					return evaluateNode(node.left, context) >> evaluateNode(node.right, context)
 
 				case `>>>`:
-					return run(node.left, context) >>> run(node.right, context)
+					return evaluateNode(node.left, context) >>> evaluateNode(node.right, context)
 
 				case `&`:
-					return run(node.left, context) & run(node.right, context)
+					return evaluateNode(node.left, context) & evaluateNode(node.right, context)
 
 				case `|`:
-					return run(node.left, context) | run(node.right, context)
+					return evaluateNode(node.left, context) | evaluateNode(node.right, context)
 
 				case `^`:
-					return run(node.left, context) ^ run(node.right, context)
+					return evaluateNode(node.left, context) ^ evaluateNode(node.right, context)
 
 				case `|>`:
 					throw new Error(HERE)
@@ -383,7 +383,7 @@ export function run(node: Node, context: Context): any {
 			let finalValue
 
 			for (const childNode of node.body) {
-				finalValue = run(childNode, blockScope)
+				finalValue = evaluateNode(childNode, blockScope)
 
 				if (blockScope.signal) {
 					context.signal = blockScope.signal
@@ -397,7 +397,7 @@ export function run(node: Node, context: Context): any {
 
 		case `UpdateExpression`: {
 			if (node.argument.type == `Identifier`) {
-				let value = run(node.argument, context)
+				let value = evaluateNode(node.argument, context)
 
 				switch (node.operator) {
 					case `++`: {
@@ -421,14 +421,14 @@ export function run(node: Node, context: Context): any {
 			assert(node.argument.type == `MemberExpression`, () => `node.argument.type was "${node.argument.type}"`)
 			assert(node.argument.property)
 
-			const object = run(node.argument.object, context)
+			const object = evaluateNode(node.argument.object, context)
 			let key
 
 			if (node.argument.computed) {
 				assert(node.argument.property.type == `Identifier`, HERE)
 				key = node.argument.property.name
 			} else
-				key = run(node.argument.property, context)
+				key = evaluateNode(node.argument.property, context)
 
 			if (node.operator == `++`) {
 				if (node.prefix)
@@ -445,10 +445,10 @@ export function run(node: Node, context: Context): any {
 
 		case `ReturnStatement`: {
 			const value = node.argument
-				? run(node.argument, context)
+				? evaluateNode(node.argument, context)
 				: undefined
 
-			context.signal = { type: SignalType.Return, value }
+			context.signal = { kind: SignalKind.Return, value }
 
 			return value
 		}
@@ -460,9 +460,9 @@ export function run(node: Node, context: Context): any {
 				if (!element)
 					array.length++
 				else if (element.type == `SpreadElement`)
-					array.push(...run(element.argument, context))
+					array.push(...evaluateNode(element.argument, context))
 				else
-					array.push(run(element, context))
+					array.push(evaluateNode(element, context))
 			}
 
 			return array
@@ -473,12 +473,12 @@ export function run(node: Node, context: Context): any {
 
 			for (const property of node.properties) {
 				if (property.type == `SpreadElement`)
-					Object.assign(object, run(property.argument, context))
+					Object.assign(object, evaluateNode(property.argument, context))
 				else if (property.type == `ObjectProperty`) {
 					let name: string
 
 					if (property.computed)
-						name = run(property.key, context)
+						name = evaluateNode(property.key, context)
 					else if (property.key.type == `Identifier`)
 						name = property.key.name
 					else
@@ -486,12 +486,12 @@ export function run(node: Node, context: Context): any {
 
 					object[name] = property.value.type == `FunctionExpression` || property.value.type == `ArrowFunctionExpression`
 						? createFunction(property.value, context, name)
-						: run(property.value, context)
+						: evaluateNode(property.value, context)
 				} else if (property.type == `ObjectMethod`) {
 					switch (property.kind) {
 						case `get`: {
 							if (property.computed) {
-								Object.defineProperty(object, run(property.key, context), {
+								Object.defineProperty(object, evaluateNode(property.key, context), {
 									get: createFunction(property, context),
 									configurable: true,
 									enumerable: true
@@ -511,7 +511,7 @@ export function run(node: Node, context: Context): any {
 
 						case `set`: {
 							if (property.computed) {
-								Object.defineProperty(object, run(property.key, context), {
+								Object.defineProperty(object, evaluateNode(property.key, context), {
 									set: createFunction(property, context),
 									configurable: true,
 									enumerable: true
@@ -545,20 +545,20 @@ export function run(node: Node, context: Context): any {
 				const templateElement = node.quasis[index + 1]!
 
 				assert(templateElement.type == `TemplateElement`, `templateElement.type was "${templateElement.type}"`)
-				string += run(node.expressions[index]!, context) + templateElement.value.cooked
+				string += evaluateNode(node.expressions[index]!, context) + templateElement.value.cooked
 			}
 
 			return string
 		}
 
 		case `IfStatement`: {
-			const value = run(node.test, context)
+			const value = evaluateNode(node.test, context)
 
 			if (value)
-				return run(node.consequent, context)
+				return evaluateNode(node.consequent, context)
 
 			if (node.alternate)
-				return run(node.alternate, context)
+				return evaluateNode(node.alternate, context)
 
 			return value
 		}
@@ -567,9 +567,9 @@ export function run(node: Node, context: Context): any {
 			assert(node.label.type == `Identifier`, `node.label.type was "${node.label.type}"`)
 			context.statementLabel = node.label.name
 
-			const value = run(node.body, context)
+			const value = evaluateNode(node.body, context)
 
-			if (context.signal && context.signal.type == SignalType.Break && context.signal.label == node.label.name)
+			if (context.signal && context.signal.kind == SignalKind.Break && context.signal.label == node.label.name)
 				context.signal = undefined
 
 			return value
@@ -579,7 +579,7 @@ export function run(node: Node, context: Context): any {
 			if (node.label)
 				assert(node.label.type == `Identifier`, `node.label.type was "${node.label.type}"`)
 
-			context.signal = { type: SignalType.Break, label: node.label?.name }
+			context.signal = { kind: SignalKind.Break, label: node.label?.name }
 
 			return
 		}
@@ -589,15 +589,15 @@ export function run(node: Node, context: Context): any {
 			let finalValue
 
 			do {
-				finalValue = run(node.body, forContext)
+				finalValue = evaluateNode(node.body, forContext)
 
-				if (context.signal?.type == SignalType.Break) {
+				if (context.signal?.kind == SignalKind.Break) {
 					if (!context.signal.label)
 						context.signal = undefined
 
 					return finalValue
 				}
-			} while (run(node.test, context))
+			} while (evaluateNode(node.test, context))
 
 			return finalValue
 		}
@@ -606,21 +606,21 @@ export function run(node: Node, context: Context): any {
 			if (node.label)
 				assert(node.label.type == `Identifier`, `node.label.type was "${node.label.type}"`)
 
-			context.signal = { type: SignalType.Continue, label: node.label?.name }
+			context.signal = { kind: SignalKind.Continue, label: node.label?.name }
 
 			return
 		}
 
 		case `NewExpression`: {
-			const constructor = run(node.callee, context)
+			const constructor = evaluateNode(node.callee, context)
 
 			const args = []
 
 			for (const argument of node.arguments) {
 				if (argument.type == `SpreadElement`)
-					args.push(...run(argument.argument, context))
+					args.push(...evaluateNode(argument.argument, context))
 				else
-					args.push(run(argument, context))
+					args.push(evaluateNode(argument, context))
 			}
 
 			if (typeof constructor == `function`)
@@ -630,7 +630,7 @@ export function run(node: Node, context: Context): any {
 		}
 
 		case `ThrowStatement`:
-			throw run(node.argument, context)
+			throw evaluateNode(node.argument, context)
 
 		case `UnaryExpression`: {
 			assert(node.prefix, `node.prefix was false`)
@@ -641,35 +641,35 @@ export function run(node: Node, context: Context): any {
 						return true
 
 					if (node.argument.computed)
-						return delete run(node.argument.object, context)[run(node.argument.property, context)]
+						return delete evaluateNode(node.argument.object, context)[evaluateNode(node.argument.property, context)]
 
 					assert(node.argument.property.type == `Identifier`, `node.argument.property.type was "${node.argument.property.type}"`)
 
-					return delete run(node.argument.object, context)[node.argument.property.name]
+					return delete evaluateNode(node.argument.object, context)[node.argument.property.name]
 				}
 
 				case `void`:
-					return void run(node.argument, context)
+					return void evaluateNode(node.argument, context)
 
 				case `typeof`:
-					return typeof run(node.argument, context)
+					return typeof evaluateNode(node.argument, context)
 
 				case `+`: {
 					// eslint-disable-next-line no-implicit-coercion
-					return +run(node.argument, context)
+					return +evaluateNode(node.argument, context)
 				}
 
 				case `-`:
-					return -run(node.argument, context)
+					return -evaluateNode(node.argument, context)
 
 				case `~`:
-					return ~run(node.argument, context)
+					return ~evaluateNode(node.argument, context)
 
 				case `!`:
-					return !run(node.argument, context)
+					return !evaluateNode(node.argument, context)
 
 				case `throw`:
-					throw run(node.argument, context)
+					throw evaluateNode(node.argument, context)
 			}
 		}
 
@@ -683,26 +683,26 @@ export function run(node: Node, context: Context): any {
 		case `LogicalExpression`: {
 			switch (node.operator) {
 				case `&&`:
-					return run(node.left, context) && run(node.right, context)
+					return evaluateNode(node.left, context) && evaluateNode(node.right, context)
 
 				case `||`:
-					return run(node.left, context) || run(node.right, context)
+					return evaluateNode(node.left, context) || evaluateNode(node.right, context)
 
 				case `??`:
-					return run(node.left, context) ?? run(node.right, context)
+					return evaluateNode(node.left, context) ?? evaluateNode(node.right, context)
 			}
 		}
 
 		case `ConditionalExpression`: {
-			if (run(node.test, context))
-				return run(node.consequent, context)
+			if (evaluateNode(node.test, context))
+				return evaluateNode(node.consequent, context)
 
-			return run(node.alternate, context)
+			return evaluateNode(node.alternate, context)
 		}
 
 		case `TryStatement`: {
 			try {
-				return run(node.block, context)
+				return evaluateNode(node.block, context)
 			} catch (error) {
 				if (!node.handler)
 					return
@@ -710,7 +710,7 @@ export function run(node: Node, context: Context): any {
 				assert(node.handler.type == `CatchClause`, `node.handler.type was "${node.handler.type}"`)
 
 				if (!node.handler.param)
-					return run(node.handler.body, context)
+					return evaluateNode(node.handler.body, context)
 
 				assert(node.handler.param.type == `Identifier`, `node.handler.param.type was "${node.handler.param.type}"`)
 
@@ -718,11 +718,11 @@ export function run(node: Node, context: Context): any {
 
 				catchScope.variables[node.handler.param.name] = error
 
-				return run(node.handler.body, catchScope)
+				return evaluateNode(node.handler.body, catchScope)
 			} finally {
 				if (node.finalizer) {
 					// eslint-disable-next-line no-unsafe-finally
-					return run(node.finalizer, context)
+					return evaluateNode(node.finalizer, context)
 				}
 			}
 		}
@@ -737,14 +737,14 @@ export function run(node: Node, context: Context): any {
 			const { superClass, id, body } = node
 
 			const constructor = ({
-				[id.name]: class extends (superClass ? run(superClass, context) : Object) {
+				[id.name]: class extends (superClass ? evaluateNode(superClass, context) : Object) {
 					constructor(...args: any[]) {
 						if (!constructorNode) {
 							// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
 							const this_: any = super(...args)
 
 							for (const [ name, value ] of propertyDefinitions)
-								this_[name] = run(value, context)
+								this_[name] = evaluateNode(value, context)
 
 							return
 						}
@@ -762,7 +762,7 @@ export function run(node: Node, context: Context): any {
 							constructorScope.this = super(...args)
 
 							for (const [ name, value ] of propertyDefinitions)
-								constructorScope.this[name] = run(value, context)
+								constructorScope.this[name] = evaluateNode(value, context)
 
 							return constructorScope.this
 						}
@@ -781,14 +781,14 @@ export function run(node: Node, context: Context): any {
 								assert(childNode.left.type == `Identifier`, `childNode.left.type was ${childNode.left.type}`)
 
 								constructorScope.variables[childNode.left.name] =
-									args[index] === undefined ? run(childNode.right, context) : args[index]
+									args[index] === undefined ? evaluateNode(childNode.right, context) : args[index]
 							} else
 								throw new AssertError(`childNode.type was "${childNode.type}"`)
 						}
 
-						run(constructorNode.body, constructorScope)
+						evaluateNode(constructorNode.body, constructorScope)
 
-						if (context.signal && context.signal.type == SignalType.Return) {
+						if (context.signal && context.signal.kind == SignalKind.Return) {
 							const { value } = context.signal
 
 							context.signal = undefined
@@ -814,13 +814,13 @@ export function run(node: Node, context: Context): any {
 				if (definition.type == `ClassProperty`) {
 					if (definition.static) {
 						if (definition.computed)
-							constructor[run(definition.key, context)] = definition.value ? run(definition.value, context) : undefined
+							constructor[evaluateNode(definition.key, context)] = definition.value ? evaluateNode(definition.value, context) : undefined
 						else {
 							assert(definition.key.type == `Identifier`, `definition.key.type was "${definition.key.type}"`)
-							constructor[definition.key.name] = definition.value ? run(definition.value, context) : undefined
+							constructor[definition.key.name] = definition.value ? evaluateNode(definition.value, context) : undefined
 						}
 					} else if (definition.computed)
-						propertyDefinitions.set(run(definition.key, context), definition.value || babel.identifier(`undefined`))
+						propertyDefinitions.set(evaluateNode(definition.key, context), definition.value || babel.identifier(`undefined`))
 					else {
 						assert(definition.key.type == `Identifier`, `definition.key.type was "${definition.key.type}"`)
 						propertyDefinitions.set(definition.key.name, definition.value || babel.identifier(`undefined`))
@@ -831,7 +831,7 @@ export function run(node: Node, context: Context): any {
 					else if (definition.kind == `method`) {
 						if (definition.static) {
 							if (definition.computed) {
-								const name: any = run(definition.key, context)
+								const name: any = evaluateNode(definition.key, context)
 
 								constructor[name] = createFunction(definition, constructorContext, name)
 							} else {
@@ -839,7 +839,7 @@ export function run(node: Node, context: Context): any {
 								constructor[definition.key.name] = createFunction(definition, constructorContext, definition.key.name)
 							}
 						} else if (definition.computed) {
-							const name: any = run(definition.key, context)
+							const name: any = evaluateNode(definition.key, context)
 
 							constructor.prototype[name] = createFunction(definition, constructorContext, name)
 						} else {
@@ -861,7 +861,7 @@ export function run(node: Node, context: Context): any {
 			let finalValue
 
 			for (const expression of node.expressions)
-				finalValue = run(expression, context)
+				finalValue = evaluateNode(expression, context)
 
 			return finalValue
 		}
@@ -880,12 +880,17 @@ export function run(node: Node, context: Context): any {
 		}
 
 		case `File`:
-			return run(node.program, context)
+			return evaluateNode(node.program, context)
+
+		case `AwaitExpression`: {
+			context.signal = { kind: SignalKind.Await, value: evaluateNode(node.argument, context) }
+			return
+		}
 
 		default: {
 			console.error(node)
 
-			throw new AssertError(`unknown node type "${node.type}"`)
+			throw new Error(`Unhandled node type: ${node.type}`)
 		}
 	}
 }
@@ -977,15 +982,15 @@ export function createFunction(node: babel.Function, context: Context, name = ``
 						assert(childNode.left.type == `Identifier`, `childNode.left.type was ${childNode.left.type}`)
 
 						functionContext.variables[childNode.left.name] =
-							args[index] === undefined ? run(childNode.right, context) : args[index]
+							args[index] === undefined ? evaluateNode(childNode.right, context) : args[index]
 					} else
 						throw new AssertError(`childNode.type was "${childNode.type}"`)
 				}
 
 				if (node.body.type == `BlockStatement`) {
-					run(node.body, functionContext)
+					evaluateNode(node.body, functionContext)
 
-					if (functionContext.signal && functionContext.signal.type == SignalType.Return) {
+					if (functionContext.signal && functionContext.signal.kind == SignalKind.Return) {
 						const { value } = functionContext.signal
 
 						functionContext.signal = undefined
@@ -996,7 +1001,7 @@ export function createFunction(node: babel.Function, context: Context, name = ``
 					return
 				}
 
-				return run(node.body, functionContext)
+				return evaluateNode(node.body, functionContext)
 			}
 		}[name]
 	}
@@ -1020,15 +1025,15 @@ export function createFunction(node: babel.Function, context: Context, name = ``
 					assert(childNode.left.type == `Identifier`, `childNode.left.type was ${childNode.left.type}`)
 
 					functionContext.variables[childNode.left.name] =
-						args[index] === undefined ? run(childNode.right, context) : args[index]
+						args[index] === undefined ? evaluateNode(childNode.right, context) : args[index]
 				} else
 					throw new AssertError(`childNode.type was "${childNode.type}"`)
 			}
 
 			if (node.body.type == `BlockStatement`) {
-				run(node.body, functionContext)
+				evaluateNode(node.body, functionContext)
 
-				if (functionContext.signal && functionContext.signal.type == SignalType.Return) {
+				if (functionContext.signal && functionContext.signal.kind == SignalKind.Return) {
 					const { value } = functionContext.signal
 
 					functionContext.signal = undefined
@@ -1039,7 +1044,7 @@ export function createFunction(node: babel.Function, context: Context, name = ``
 				return
 			}
 
-			return run(node.body, functionContext)
+			return evaluateNode(node.body, functionContext)
 		}
 	}[name]
 }

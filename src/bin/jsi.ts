@@ -2,7 +2,7 @@
 import { parse } from "@babel/parser"
 import type { Node } from "@babel/types"
 import { promises as fsPromises } from "fs"
-import { evaluate, run, type Context } from ".."
+import { evaluateString, evaluateNode, type Context, SignalKind } from ".."
 import { isRecord } from "@samual/lib/isRecord"
 import { assert } from "@samual/lib/assert"
 
@@ -19,7 +19,7 @@ const context: Context = {
 }
 
 if (process.argv[2])
-	evaluate(await readFile(process.argv[2], { encoding: `utf-8` }))
+	evaluateString(await readFile(process.argv[2], { encoding: `utf-8` }))
 else {
 	main:
 	while (true) {
@@ -29,7 +29,7 @@ else {
 
 		do {
 			try {
-				node = parse(code)
+				node = parse(code, { sourceType: `module` })
 			} catch (error) {
 				assert(isRecord(error))
 				assert(typeof error.pos == `number`)
@@ -48,7 +48,12 @@ else {
 		let returnValue
 
 		try {
-			returnValue = run(node, context)
+			returnValue = evaluateNode(node, context)
+
+			if (context.signal?.kind == SignalKind.Await) {
+				returnValue = await returnValue
+				context.signal = undefined
+			}
 		} catch (error) {
 			console.error(`Uncaught`, error)
 

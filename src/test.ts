@@ -1,5 +1,5 @@
 import { promises as fsPromises } from "fs"
-import { evaluate } from "."
+import { evaluateString } from "."
 import { findFiles } from "@samual/lib/findFiles"
 import { is } from "@samual/lib/is"
 import { deeplyEquals } from "@samual/lib/deeplyEquals"
@@ -14,7 +14,7 @@ for (const path of await findFiles(`tests`, [ `LICENSE` ])) {
 
 	// TODO this might need fixing
 	// eslint-disable-next-line no-await-in-loop
-	evaluate(await readFile(path, { encoding: `utf-8` }), Object.assign(Object.create(globalThis), {
+	evaluateString(await readFile(path, { encoding: `utf-8` }), Object.assign(Object.create(globalThis), {
 		test(name: string, callback: () => void) {
 			console.log(`\t${name}`)
 			fails = []
@@ -40,21 +40,21 @@ for (const path of await findFiles(`tests`, [ `LICENSE` ])) {
 
 				toEval() {
 					try {
-						evaluate(a)
+						evaluateString(a)
 					} catch {
 						fails.push(index)
 					}
 				},
 
 				toEvalTo(b: any) {
-					if (evaluate(a) != b)
+					if (evaluateString(a) != b)
 						fails.push(index)
 				},
 
 				not: {
 					toEval() {
 						try {
-							evaluate(a)
+							evaluateString(a)
 						} catch {
 							return
 						}
