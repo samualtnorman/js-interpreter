@@ -1,14 +1,12 @@
 {
-	"name": "typescript-project",
+	"name": "@samual/jsi",
 	"version": "0.0.0",
 	"description": "remember to update urls in this file",
 	"scripts": {
-		"prepare": "ts-patch install -s",
-		"lint": "eslint .; tsc; tsc --project src",
 		"build": "rollup --config",
 		"dev": "pnpm build --watch",
-		"emit-declarations": "tsc --project src --declaration --emitDeclarationOnly --noEmit false --outDir dist",
-		"package": "rm -rf dist && pnpm build && pnpm emit-declarations && scripts/build-package-json.js && cp LICENSE README.md index.cjs dist",
+		"emit-declarations": "tsc --project src --noCheck --declaration --emitDeclarationOnly --noEmit false --outDir dist",
+		"package": "rm -rf dist && pnpm build && pnpm emit-declarations && scripts/build-package-json.js && cp LICENSE README.md dist",
 		"update": "pnpm update --latest !@types/node && pnpm update @types/node"
 	},
 	"repository": {
@@ -22,47 +20,28 @@
 	},
 	"homepage": "https://github.com/samualtnorman/typescript-project#readme",
 	"devDependencies": {
-		"@babel/core": "^7.21.4",
-		"@babel/preset-env": "^7.21.4",
-		"@babel/preset-typescript": "^7.21.4",
-		"@rollup/plugin-alias": "^4.0.3",
-		"@rollup/plugin-babel": "^6.0.3",
-		"@rollup/plugin-node-resolve": "^15.0.1",
-		"@rollup/plugin-terser": "^0.4.0",
-		"@types/node": "^14.18.42",
-		"@typescript-eslint/eslint-plugin": "^5.57.0",
-		"@typescript-eslint/parser": "^5.57.0",
-		"eslint": "^8.37.0",
-		"eslint-plugin-array-func": "^3.1.8",
-		"eslint-plugin-eslint-comments": "^3.2.0",
-		"eslint-plugin-regexp": "^1.14.0",
-		"eslint-plugin-unicorn": "^46.0.0",
-		"magic-string": "^0.30.0",
-		"rollup": "^3.20.2",
-		"semver": "^7.3.8",
-		"ts-patch": "^2.1.0",
-		"typescript": "^5.0.3",
-		"typescript-transform-paths": "^3.4.6"
+		"@samual/rollup-config": "0.1.2-6b64505",
+		"@types/node": "^22.7.5",
+		"rollup": "^4.24.0",
+		"semver": "^7.6.3",
+		"typescript": "^5.6.3"
 	},
 	"private": true,
 	"type": "module",
 	"engine": {
-		"node": ">=14"
+		"node": ">=22"
 	},
 	"exports": {
 		".": {
-			"require": "./index.cjs",
 			"import": "./index.js"
 		},
 		"./*": "./*.js",
 		"./*.js": "./*.js"
 	},
-	"optionalDependencies": {
-		"deasync": "^0.1.28"
-	},
 	"dependencies": {
-		"@babel/parser": "^7.21.4",
-		"@babel/types": "^7.21.4",
-		"@samual/lib": "^0.6.0"
+		"@babel/parser": "^7.25.8",
+		"@babel/types": "^7.25.8",
+		"@samual/lib": "0.12.1-5bd9e27",
+		"babel-plugin-here": "1.0.2-87a5573"
 	}
 }

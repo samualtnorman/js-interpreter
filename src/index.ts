@@ -2,7 +2,6 @@ import { parse } from "@babel/parser"
 import type { Node } from "@babel/types"
 import * as babel from "@babel/types"
 import { assert, AssertError } from "@samual/lib/assert"
-import { objectHasOwn } from "@samual/lib/objectHasOwn"
 
 const enum SignalType {
 	Return, Break, Continue
@@ -917,7 +916,7 @@ function setVariable(name: string, value: any, { variables, constants }: Context
 		throw new TypeError(`assignment to constant`)
 
 	for (let scope = variables; scope; scope = Object.getPrototypeOf(scope)) {
-		if (objectHasOwn(scope, name)) {
+		if (Object.hasOwn(scope, name)) {
 			scope[name] = value
 
 			return value

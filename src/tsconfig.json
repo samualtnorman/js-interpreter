@@ -5,8 +5,7 @@
 		"strict": true,
 		"useUnknownInCatchVariables": true,
 		"strictNullChecks": true,
-		"paths": { "/": [ "." ], "/*": [ "./*" ] },
-		"plugins": [ { "transform": "typescript-transform-paths", "afterDeclarations": true } ]
+		"types": [ "@types/node", "babel-plugin-here/env" ]
 	},
 	"extends": "..",
 	"include": [ "**/*" ]
