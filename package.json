@@ -6,7 +6,7 @@
 		"build": "rollup --config",
 		"dev": "pnpm build --watch",
 		"emit-declarations": "tsc --project src --noCheck --declaration --emitDeclarationOnly --noEmit false --outDir dist",
-		"package": "rm -rf dist && pnpm build && pnpm emit-declarations && scripts/build-package-json.js && cp LICENSE README.md dist",
+		"package": "rm -rf dist && pnpm build && pnpm emit-declarations && scripts/build-package-json.js && cp licence README.md dist",
 		"update": "pnpm update --latest !@types/node && pnpm update @types/node"
 	},
 	"repository": {
