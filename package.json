@@ -22,7 +22,7 @@
 	"devDependencies": {
 		"@samual/rollup-config": "0.1.2-6b64505",
 		"@types/node": "^22.7.5",
-		"rollup": "^4.24.0",
+		"rollup": "^4.59.0",
 		"semver": "^7.6.3",
 		"typescript": "^5.6.3"
 	},
